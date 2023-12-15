@@ -9,9 +9,7 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [
-    "*"
-  ],
+  "activationEvents": [],
   "browser": "./dist/web/extension.js",
   "contributes": {
     "commands": [
