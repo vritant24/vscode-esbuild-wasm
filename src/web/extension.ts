@@ -9,18 +9,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const esb = new EsbuildManager(context);
 	vscode.commands.registerCommand('esb.build', async () => {
-		const workspaceUri = vscode.workspace.workspaceFolders![0].uri;
-		console.log("workspaceuri: " + workspaceUri);
-		const indexFile = vscode.Uri.joinPath(workspaceUri, 'index.ts');
-	
-		const entryPoint = indexFile.path;
-		const outdir = vscode.Uri.joinPath(workspaceUri, 'out').path;
-		
 		try {
-			await esb.build(
-				entryPoint, 
-				outdir, 
-			);
+			await esb.build();
 		} catch (error) {
 			console.log(error);
 		}

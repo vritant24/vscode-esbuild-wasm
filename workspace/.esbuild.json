@@ -1,0 +1,10 @@
+{
+   "entryPoints": ["index.ts"],
+   "outdir": "dist",
+   "sourcemap": true,
+   "jsx": "automatic",
+   "logLevel": "verbose",
+   "minify": false,
+   "bundle": true,
+   "target": ["es2015"]
+}

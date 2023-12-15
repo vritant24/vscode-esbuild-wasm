@@ -1,10 +1,10 @@
 import * as esbuild from 'esbuild-wasm/lib/browser';
 import path = require('path-browserify');
 import * as vscode from 'vscode';
+import { fileExists, logger, workspaceUri } from './utilities';
+import { parseDotBuildFile } from './dotBuild';
 
-const workspaceUri = vscode.workspace.workspaceFolders![0].uri;
 const supportedExtensions = ['.ts', '.js', '.tsx', '.jsx'];
-const logger = vscode.window.createOutputChannel('esbuild', {log: true});
 
 export class EsbuildManager {
     private readonly initPromise: Promise<void>;
@@ -22,16 +22,17 @@ export class EsbuildManager {
         });
     }
 
-    async build(entryPoint: string, outdir: string) {
+    async build() {
         await this.initPromise;
+        const dotFile = await parseDotBuildFile();
+        if (!dotFile) {
+            logger.error("No .esbuild.json file found");
+            return;
+        }
         try {
             let result = await esbuild.build( 
                 {
-                    outdir: outdir, 
-                    entryPoints: [entryPoint], 
-                    bundle: true, 
-                    sourcemap: true, 
-                    target: ['es2015'],
+                    ...dotFile,
                     plugins: [
                         new TsVSCodePlugin()
                     ],
@@ -51,7 +52,7 @@ export class EsbuildManager {
             }
 
             for (let item of result.outputFiles!) {
-                const uri = vscode.Uri.from({ scheme: workspaceUri.scheme, path: item.path});
+                const uri = vscode.Uri.joinPath(workspaceUri, item.path);
                 await vscode.workspace.fs.writeFile(uri, item.contents);
             }
         } catch (error) {
@@ -107,13 +108,19 @@ export class TsVSCodePlugin implements esbuild.Plugin {
                 };
             }
             logger.info(`build.onResolve ${args.path}`);
+            const resolvedPath = getAsWorkspacePath(args.path);
             return {
-                path: args.path,
+                path: resolvedPath,
                 namespace: args.namespace,
                 pluginName: 'ts-vscode-plugin',
             };
         });
     }
+}
+
+function getAsWorkspacePath(filepath: string) {
+    const resolvedPath = path.resolve(workspaceUri.path, filepath);
+    return resolvedPath;
 }
 
 async function getFileWithExtension(path: string) {
@@ -127,12 +134,3 @@ async function getFileWithExtension(path: string) {
     }
     return undefined;
 }
-
-async function fileExists(path: string) {
-    try {
-        await vscode.workspace.fs.stat(vscode.Uri.from({scheme: workspaceUri.scheme, path}));
-        return true;
-    } catch (error) {
-        return false;
-    }
-} 
