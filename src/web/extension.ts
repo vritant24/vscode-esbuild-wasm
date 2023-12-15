@@ -11,7 +11,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	const esb = new EsbuildManager(context);
 	vscode.commands.registerCommand('esb.build', async (arg: unknown) => {
 		let dotBuildUri = arg instanceof vscode.Uri ? arg : vscode.window.activeTextEditor?.document.uri;
-		if (!dotBuildUri) {
+		if (!dotBuildUri || !dotBuildUri.path.endsWith(dotBuildFileName)) {
 			dotBuildUri = vscode.Uri.joinPath(workspaceUri, dotBuildFileName);
 		}
 		if (!(await fileUriExists(dotBuildUri))) {
