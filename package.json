@@ -9,15 +9,30 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "workspaceContains:**/.esbuild.json"
+  ],
   "browser": "./dist/web/extension.js",
   "contributes": {
     "commands": [
       {
         "command": "esb.build",
-        "title": "Build"
+        "title": "Build",
+        "icon": {
+          "light": "settings-gear",
+          "dark": "settings-gear"
+        }
       }
-    ]
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "esb.build",
+          "when": "resourceFilename == '.esbuild.json'",
+          "group": "build@1"
+        }
+      ]
+    }
   },
   "scripts": {
     "int-test": "vscode-test-web --browserType=chromium --extensionDevelopmentPath=. --extensionTestsPath=dist/web/test/suite/index.js",

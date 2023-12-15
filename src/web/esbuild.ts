@@ -22,9 +22,9 @@ export class EsbuildManager {
         });
     }
 
-    async build() {
+    async build(dotBuildUri: vscode.Uri) {
         await this.initPromise;
-        const dotFile = await parseDotBuildFile();
+        const dotFile = await parseDotBuildFile(dotBuildUri);
         if (!dotFile) {
             logger.error("No .esbuild.json file found");
             return;

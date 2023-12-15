@@ -2,12 +2,11 @@ import * as vscode from 'vscode';
 import { fileExists, logger, workspaceUri } from './utilities';
 import * as esbuild from 'esbuild-wasm';
 
-export async function parseDotBuildFile(): Promise<Partial<esbuild.BuildOptions> | undefined> {
-    const dotbuild = vscode.Uri.joinPath(workspaceUri, '.esbuild.json');
-    if (!(await fileExists(dotbuild.path))) {
+export async function parseDotBuildFile(dotBuildPath: vscode.Uri): Promise<Partial<esbuild.BuildOptions> | undefined> {
+    if (!(await fileExists(dotBuildPath.path))) {
         return undefined;
     }
-    const content = await vscode.workspace.fs.readFile(dotbuild);
+    const content = await vscode.workspace.fs.readFile(dotBuildPath);
     const textDecoder = new TextDecoder();
     const json = JSON.parse(textDecoder.decode(content));
     logger.info(json);
