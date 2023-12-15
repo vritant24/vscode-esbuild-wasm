@@ -1,12 +1,15 @@
 import * as esbuild from 'esbuild-wasm/lib/browser';
+import path = require('path-browserify');
 import * as vscode from 'vscode';
+
+const workspaceUri = vscode.workspace.workspaceFolders![0].uri;
+const supportedExtensions = ['.ts', '.js', '.tsx', '.jsx'];
+const logger = vscode.window.createOutputChannel('esbuild', {log: true});
 
 export class EsbuildManager {
     private readonly initPromise: Promise<void>;
-    private readonly logger: vscode.LogOutputChannel;
     
     constructor(context: vscode.ExtensionContext) {
-        this.logger = vscode.window.createOutputChannel('esbuild', {log: true});
         this.initPromise = this.initWasm(context);
     }
 
@@ -36,18 +39,16 @@ export class EsbuildManager {
             );
             if (result.errors.length > 0) {
                 for (let error of result.errors) {
-                    this.logger.error(error.text);
+                    logger.error(error.text);
                 }
                 return;
             }
 
             if (result.warnings.length > 0) {
                 for (let warning of result.warnings) {
-                    this.logger.warn(warning.text);
+                    logger.warn(warning.text);
                 }
             }
-
-            const workspaceUri = vscode.workspace.workspaceFolders![0].uri;
 
             for (let item of result.outputFiles!) {
                 const uri = vscode.Uri.from({ scheme: workspaceUri.scheme, path: item.path});
@@ -56,7 +57,7 @@ export class EsbuildManager {
         } catch (error) {
             console.log(error);
             if (error instanceof Error || typeof error === 'string') {
-                this.logger.error(error);
+                logger.error(error);
             }
         }
     }
@@ -68,22 +69,44 @@ export class TsVSCodePlugin implements esbuild.Plugin {
         this.name = 'ts-vscode-plugin';
     }
     setup(build: esbuild.PluginBuild) {
-        const workspaceUri = vscode.workspace.workspaceFolders![0].uri;
         build.onLoad({ filter: /\.ts$/ }, async (args) => {
             try {
                 const uri = vscode.Uri.from({scheme: workspaceUri.scheme, path: args.path});
-                console.log(`build.onLoad ${uri}`);
+                logger.info(`build.onLoad ${uri}`);
                 let text = await vscode.workspace.fs.readFile(uri);
                 return {
                     contents: text,
                     loader: 'ts',
                 };
             } catch (error) {
-                console.log("build.onLoad error"); 
+                logger.error("build.onLoad error"); 
                 console.log(error);
+                if (error instanceof Error || typeof error === 'string') {
+                    logger.error(error);
+                }
             }
         });
-        build.onResolve({ filter: /\.ts$/ }, async (args) => {
+    build.onResolve({ filter: /.*/ }, async (args) => {
+            if (args.path.startsWith('.')) {
+                // relative path
+
+                // get parent directory of importer
+                const resolvedPath = path.join(path.dirname(args.importer), args.path);
+                const importerUri = vscode.Uri.from({scheme: workspaceUri.scheme, path: resolvedPath});
+ 
+                // get path with extension
+                const filePath = await getFileWithExtension(importerUri.path);
+                if (!filePath) {
+                    throw new Error(`File not found: ${args.path}`);
+                }
+
+                logger.info(`build.onResolve ${filePath}`);
+                return {
+                    path: filePath,
+                    namespace: args.namespace,
+                };
+            }
+            logger.info(`build.onResolve ${args.path}`);
             return {
                 path: args.path,
                 namespace: args.namespace,
@@ -92,3 +115,24 @@ export class TsVSCodePlugin implements esbuild.Plugin {
         });
     }
 }
+
+async function getFileWithExtension(path: string) {
+    if (await fileExists(path)) {
+        return path;
+    }
+    for (let extension of supportedExtensions) {
+        if (await fileExists(path + extension)) {
+            return path + extension;
+        }
+    }
+    return undefined;
+}
+
+async function fileExists(path: string) {
+    try {
+        await vscode.workspace.fs.stat(vscode.Uri.from({scheme: workspaceUri.scheme, path}));
+        return true;
+    } catch (error) {
+        return false;
+    }
+} 

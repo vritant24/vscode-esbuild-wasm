@@ -1,1 +1,4 @@
-console.log('Hello from index.ts');
+import { A } from "./module";
+
+const a = new A();
+a.print();
