@@ -3,6 +3,7 @@ import path = require('path-browserify');
 import * as vscode from 'vscode';
 import { fileExists, logger, workspaceUri } from './utilities';
 import { parseDotBuildFile } from './dotBuild';
+import { Loader } from 'esbuild-wasm';
 
 const supportedExtensions = ['.ts', '.js', '.tsx', '.jsx'];
 
@@ -70,14 +71,15 @@ export class TsVSCodePlugin implements esbuild.Plugin {
         this.name = 'ts-vscode-plugin';
     }
     setup(build: esbuild.PluginBuild) {
-        build.onLoad({ filter: /\.ts$/ }, async (args) => {
+        build.onLoad({ filter: /.*/ }, async (args) => {
             try {
                 const uri = vscode.Uri.from({scheme: workspaceUri.scheme, path: args.path});
                 logger.info(`build.onLoad ${uri}`);
                 let text = await vscode.workspace.fs.readFile(uri);
+                const ext = path.extname(args.path).substring(1);
                 return {
                     contents: text,
-                    loader: 'ts',
+                    loader: ext as Loader,
                 };
             } catch (error) {
                 logger.error("build.onLoad error"); 
