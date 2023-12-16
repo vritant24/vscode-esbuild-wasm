@@ -26,6 +26,7 @@ export class EsbuildManager {
     async build(dotBuildUri: vscode.Uri) {
         await this.initPromise;
         const dotFile = await parseDotBuildFile(dotBuildUri);
+        const baseDir = path.dirname(dotBuildUri.path);
         if (!dotFile) {
             logger.error("No .esbuild.json file found");
             return;
@@ -35,7 +36,7 @@ export class EsbuildManager {
                 {
                     ...dotFile,
                     plugins: [
-                        new TsVSCodePlugin()
+                        new TsVSCodePlugin(baseDir)
                     ],
                 }
             );
@@ -52,8 +53,9 @@ export class EsbuildManager {
                 }
             }
 
+            const baseDirUri = vscode.Uri.from({scheme: workspaceUri.scheme, path: baseDir});
             for (let item of result.outputFiles!) {
-                const uri = vscode.Uri.joinPath(workspaceUri, item.path);
+                const uri = vscode.Uri.joinPath(baseDirUri, item.path);
                 await vscode.workspace.fs.writeFile(uri, item.contents);
             }
         } catch (error) {
@@ -67,13 +69,21 @@ export class EsbuildManager {
 
 export class TsVSCodePlugin implements esbuild.Plugin {
     name: string;
-    constructor() {
+    readonly #basePath: string;
+    
+    constructor(basePath: string) {
         this.name = 'ts-vscode-plugin';
+        this.#basePath = basePath;
     }
-    setup(build: esbuild.PluginBuild) {
+
+    setup = (build: esbuild.PluginBuild) => {
+        const basePath = this.#basePath;
+        const baseNodeModulesPath = path.join(basePath, 'node_modules');
+
         build.onLoad({ filter: /.*/ }, async (args) => {
             try {
-                const uri = vscode.Uri.from({scheme: workspaceUri.scheme, path: args.path});
+                const resolvedPath = resolveBasePath(basePath, args.path);
+                const uri = vscode.Uri.from({scheme: workspaceUri.scheme, path: resolvedPath});
                 logger.info(`build.onLoad ${uri}`);
                 let text = await vscode.workspace.fs.readFile(uri);
                 const ext = path.extname(args.path).substring(1);
@@ -100,7 +110,7 @@ export class TsVSCodePlugin implements esbuild.Plugin {
                 // get path with extension
                 const filePath = await getFileWithExtension(importerUri.path);
                 if (!filePath) {
-                    throw new Error(`File not found: ${args.path}`);
+                   return;
                 }
 
                 logger.info(`build.onResolve ${filePath}`);
@@ -109,19 +119,60 @@ export class TsVSCodePlugin implements esbuild.Plugin {
                     namespace: args.namespace,
                 };
             }
+
+            // check externals
+            const set = new Set(build.initialOptions.external ?? []);
+
+            if (set.has(args.path)) {
+                // external path
+                return undefined; 
+            }
+
+            // if node module
+            if (path.extname(args.path) === '') {
+                // get path from node_modules
+                const pathInNodeModules = await resolveNodeModulesPath(baseNodeModulesPath, args.path);
+                if (!pathInNodeModules) {
+                    logger.error(`build.onResolve ${args.path} not found in node_modules`);
+                    return;
+                }
+
+                return {
+                    path: pathInNodeModules,
+                    namespace: args.namespace,
+                };
+                
+            }
+
             logger.info(`build.onResolve ${args.path}`);
-            const resolvedPath = getAsWorkspacePath(args.path);
+            const resolvedPath = resolveBasePath(basePath, args.path);
             return {
                 path: resolvedPath,
                 namespace: args.namespace,
                 pluginName: 'ts-vscode-plugin',
             };
         });
-    }
+    };
 }
 
-function getAsWorkspacePath(filepath: string) {
-    const resolvedPath = path.resolve(workspaceUri.path, filepath);
+async function resolveNodeModulesPath(basePath: string, filepath: string) {
+    // try to resolve as js file
+    const pathInNodeModules = path.join(basePath, filepath + ".js");
+    if (await fileExists(pathInNodeModules)) {
+        return pathInNodeModules;
+    }
+
+    // try to resolve as folder with index.js
+    const pathInNodeModulesIndex = path.join(basePath, filepath, "index.js");
+    if (await fileExists(pathInNodeModulesIndex)) {
+        return pathInNodeModulesIndex;
+    }
+
+    return undefined;
+}
+
+function resolveBasePath(basePath: string, filepath: string) {
+    const resolvedPath = path.resolve(basePath, filepath);
     return resolvedPath;
 }
 
