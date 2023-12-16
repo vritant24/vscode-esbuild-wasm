@@ -35,26 +35,20 @@
     }
   },
   "scripts": {
-    "int-test": "vscode-test-web --browserType=chromium --extensionDevelopmentPath=. --extensionTestsPath=dist/web/test/suite/index.js",
     "vscode:prepublish": "npm run package-web",
     "compile-web": "webpack",
     "watch-web": "webpack --watch",
     "package-web": "webpack --mode production --devtool hidden-source-map",
     "lint": "eslint src --ext ts",
-    "run-in-browser": "vscode-test-web --browserType=chromium --extensionDevelopmentPath=. ./workspace",
-    "test": "vitest -c ./vitest.config.js run"
+    "run-in-browser": "vscode-test-web --browserType=chromium --extensionDevelopmentPath=. ./workspace"
   },
   "devDependencies": {
-    "@edge-runtime/vm": "^2.1.2",
-    "@types/assert": "^1.5.10",
-    "@types/mocha": "^10.0.6",
     "@types/path-browserify": "^1.0.2",
     "@types/vscode": "^1.85.0",
     "@types/webpack-env": "^1.18.4",
     "@typescript-eslint/eslint-plugin": "^6.13.1",
     "@typescript-eslint/parser": "^6.13.1",
     "@vscode/test-web": "^0.0.22",
-    "assert": "^2.1.0",
     "eslint": "^8.54.0",
     "mocha": "^10.2.0",
     "process": "^0.11.10",
@@ -65,7 +59,6 @@
   },
   "dependencies": {
     "esbuild-wasm": "^0.19.9",
-    "path-browserify": "^1.0.1",
-    "vitest": "^1.0.1"
+    "path-browserify": "^1.0.1"
   }
 }
